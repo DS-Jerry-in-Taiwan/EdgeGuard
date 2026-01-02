@@ -10,7 +10,7 @@ CONCURRENCY = int(os.environ.get("BENCHMARK_CONCURRENCY", 1))
 PROMPT = "你好"
 REQUESTS_PER_WORKER = int(os.environ.get("BENCHMARK_REQUESTS_PER_WORKER", 10))
 WARMUP = int(os.environ.get("BENCHMARK_WARMUP", 2))
-BATCH_SIZE = int(os.environ.get("BENCHMARK_BATCH_SIZE", 1))
+BATCH_SIZE = int(os.environ.get("BENCHMARK_BATCH_SIZE", 3))
 
 def prepare_prompt_on_gpu(prompt):
     arr = [ord(c) for c in prompt]
