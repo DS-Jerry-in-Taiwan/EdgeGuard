@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+.history/
+
+# Model/weights
+models/
+
+# Benchmark/Profiling
+benchmark_results.json
+performance_gate_report.json
+vllm_profile_report.*
+*.nsys-rep
+*.sqlite
+
+# Logs
+*.log
+
+# System
+.DS_Store
+Thumbs.db
+
+# Shell history
+.bash_history
+
+# Others
+*.tmp
+*.swp
+
+# Docs - agent context (exclude from git)
+docs/agent_context/
+docs/agent_prompt/

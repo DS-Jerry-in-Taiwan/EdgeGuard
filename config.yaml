@@ -1,0 +1,9 @@
+model_path: models/qwen2.5-7b
+output_dir: models/quantized
+quant_dtype: int4
+quant_method: awq
+
+performance_gate:
+  max_vram_gb: 9.5
+  max_ttft_s: 1.0
+  min_tps: 40

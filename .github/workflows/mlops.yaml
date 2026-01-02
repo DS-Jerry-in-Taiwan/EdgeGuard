@@ -1,0 +1,50 @@
+name: EdgeGuard ML Quantization & Performance Gate
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  quantize:
+    runs-on: [self-hosted, gpu]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install autoawq aiohttp pyyaml
+      - name: Run quantization
+        run: python scripts/quantize.py
+
+  test:
+    needs: quantize
+    runs-on: [self-hosted, gpu]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install aiohttp pyyaml
+      - name: Run benchmark client
+        run: python scripts/benchmark_client.py
+      - name: Run performance gate
+        run: python scripts/performance_gate.py
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark_report
+          path: |
+            benchmark_results.json
+            performance_gate_report.json
