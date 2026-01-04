@@ -9,8 +9,8 @@ on:
 jobs:
   quantize:
     runs-on: [self-hosted, gpu]
-    container:
-      image: edgeguard/vllm:latest
+    # container:
+    #   image: edgeguard/vllm:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
