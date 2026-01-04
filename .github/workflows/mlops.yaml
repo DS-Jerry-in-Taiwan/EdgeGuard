@@ -21,7 +21,7 @@ jobs:
       - name: check docker compose version
         run: docker compose version
       - name: Start docker compose
-        run: docker compose -f docker-compose.ci.yml up -d
+        run: docker compose -f docker-compose.prod.yml up -d
       - name: Run quantization
         run: python scripts/quantize.py
 
