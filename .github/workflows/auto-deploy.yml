@@ -1,0 +1,39 @@
+name: EdgeGuard Production Auto-Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Phase 3 PASS, trigger production deploy'
+        required: false
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-prod:
+    runs-on: [self-hosted, gpu]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Stop old service
+        run: docker-compose -f docker-compose.prod.yml down
+
+      - name: Deploy new version
+        run: docker-compose -f docker-compose.prod.yml up -d
+
+      - name: Health check (60s)
+        run: python3 scripts/health_check.py
+
+      - name: Notify success
+        if: success()
+        run: python3 scripts/slack_notifier.py --level info --message "Production deploy succeeded"
+
+      - name: Rollback on failure
+        if: failure()
+        run: bash scripts/rollback.sh
+
+      - name: Notify failure
+        if: failure()
+        run: python3 scripts/slack_notifier.py --level critical --message "Production deploy failed, rollback triggered"
