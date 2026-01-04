@@ -6,6 +6,10 @@ on:
       reason:
         description: 'Phase 3 PASS, trigger production deploy'
         required: false
+  workflow_run:
+    workflows: ["EdgeGuard ML Quantization & Performance Gate"]
+    types:
+      - completed
   push:
     branches:
       - main
