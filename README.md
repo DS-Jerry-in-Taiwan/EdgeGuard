@@ -1,102 +1,81 @@
-# EdgeGuard
+# EdgeGuard - 邊緣 AI 服務自動化驗證與效能監控平台
 
-EdgeGuard 是一套針對邊緣 AI 服務可靠性與效能的自動化驗證平台，支援 GPU 推論環境、模型部署、效能基線檢查與多版本壓測。專案設計強調可重現、可擴展、易於 CI/CD 整合。
+## 專案簡介
 
-## 專案特色
+EdgeGuard 是一套針對邊緣 AI 服務可靠性與效能的自動化驗證平台，具備兩大核心功能：
 
-- 支援多版本 benchmark 壓測腳本（含 batch/concurrency 參數 sweep）
-- 自動化效能門檻檢查（performance_gate.py）
-- 完整 .gitignore，避免模型與中間檔污染 git
-- 支援多種模型與推論引擎切換
-- 可擴展的 agent context 文件結構
+1. **自動化測試部署**：支援 GPU 推論環境、模型部署、效能基線檢查與多版本壓測，強調可重現、可擴展、易於 CI/CD 整合。
+2. **效能評估與監控**：聚焦於服務層監控、深度推論 profiling 及自訂義業務指標，協助用戶即時掌握服務狀態與效能瓶頸。
 
-## 使用流程
-
-1. **初始化專案**
-   ```bash
-   bash scripts/init_project.sh
-   ```
-
-2. **模型量化（必要步驟）**
-   ```bash
-   # 以 config.yaml 設定為例，將原始模型量化到 models/quantized/
-   python scripts/quantize.py --config config.yaml
-   ```
-
-3. **啟動 vLLM 或其他推論服務**
-
-4. **執行 benchmark 壓測**
-   ```bash
-   # 以預設參數壓測
-   python scripts/benchmark_client.py
-
-   # Sweep 參數範例
-   BENCHMARK_BATCH_SIZE=2 BENCHMARK_CONCURRENCY=4 python scripts/benchmark_client.py
-   ```
-
-5. **效能門檻檢查**
-   ```bash
-   python scripts/performance_gate.py
-   ```
-
-6. **自動化一鍵驗證**
-   ```bash
-   bash scripts/run_benchmark_and_gate.sh
-   ```
-
-## 初始化腳本
-
-建立 `scripts/init_project.sh`：
-
-```bash
-#!/bin/bash
-# 初始化 EdgeGuard 專案環境
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -U pip
-pip install -r requirements.txt
-
-echo "專案初始化完成，請依 README 啟動服務與壓測"
-```
-
-> 請依需求補充 requirements.txt 內容（如 aiohttp, torch, pyyaml 等）
+本平台同時提供 RTX 3080 GPU 的生產級 vLLM 部署解決方案，支援自動化部署、量化模型、健康檢查、回滾機制與即時效能監控。
 
 ---
 
-## 模型配置說明
+## 監控與效能分析
 
-- `models/quantized/config.json`：由 HuggingFace/transformers 或量化腳本自動產生，供框架與推論引擎讀取，屬於標準模型格式。
-- `models/configs/*.yaml`：為自訂推論服務、多模型部署或跨框架自動化管理時的擴充配置，方便記錄額外推論參數（如 dtype、tokenizer、max_length、量化方式等）。
-  - 若僅用 transformers/vLLM，config.json 已足夠。
-  - 若需自動化部署、多模型切換或自訂參數，建議保留 yaml 配置。
+本平台監控分為三大面向，協助用戶即時掌握服務狀態、推論效能與業務指標：
 
-兩者可並存，依實際需求選用。
+### 1. 服務層監控（API/資源）
 
-## 目錄結構
+- **Prometheus 監控整合**：自動抓取 vLLM 服務的 GPU VRAM、TTFT（Time To First Token）、TPS（Throughput）、GPU 溫度等關鍵指標。
+- **/metrics 端點**：vLLM 服務自帶 /metrics，支援 Prometheus 15 秒抓取頻率，數據可視化於 Grafana。
+- **Alertmanager 告警**：當 VRAM > 98%、TTFT > 800ms、TPS < 20 或 GPU 過熱時，系統自動發送 Slack 通知並可觸發自動回滾。
+- **瓶頸分析**：監控數據可用於分析推理延遲、資源瓶頸（如 OOM、GPU 飽和）、服務重啟等異常，協助快速定位與優化。
+- **日誌與追蹤**：所有異常事件與回滾操作皆記錄於 /logs，便於後續審查與效能優化。
 
-```
-EdgeGuard/
-├── scripts/
-│   ├── benchmark_client.py
-│   ├── benchmark_client_v1.py
-│   ├── benchmark_client_v2.py
-│   ├── benchmark_client_v3.py
-│   ├── benchmark_client_v4.py
-│   ├── performance_gate.py
-│   ├── run_benchmark_and_gate.sh
-│   ├── run_vllm_nsys.sh
-│   └── init_project.sh
-├── config.yaml
-├── .gitignore
-├── README.md
-└── ...
-```
+### 2. 深度推論效能分析（Profiling）
 
-## 注意事項
-
-- 請勿將 models/ 及 docs/agent_context/ 相關檔案加入 git
-- 大型檔案與中間結果已自動排除於 .gitignore
-- 如需推送到 GitHub，請先確認無大檔案殘留於 git 歷史
+- **NVIDIA Nsight Systems (nsys) 整合**：可於容器內啟動 nsys，對推論流程進行 GPU kernel trace、memory timeline、CUDA kernel、PCIe 傳輸等細節 profiling。
+- **Profiling 報告**：nsys 產生 .qdrep/.nsys-rep 檔案，支援離線分析，或透過 nsys-exporter 將部分指標轉為 Prometheus 格式。
+- **應用場景**：適用於定位單次推論瓶頸、GPU 資源利用率、kernel 排程與記憶體傳輸等底層效能問題，補足 API 層監控無法涵蓋的細節。
 
 ---
+
+### 3. 自訂義效能與業務指標
+
+- **自訂指標類型**：可於 API server 內用 prometheus_client 定義如 RAG 準度、召回率、模型 BLEU/ROUGE 分數、推論成功率、延遲分布等 Gauge/Counter/Histogram。
+- **實作方式**：每次推論或評測後即時計算，並 set()/inc()/observe() 更新指標，所有自訂指標自動暴露於 /metrics。
+- **收集與可視化**：Prometheus 定時拉取 /metrics，Grafana 查詢並可視化自訂指標，支援多模型、多版本、A/B 測試等場景。
+
+## 快速啟動
+
+1. 安裝 NVIDIA 驅動與 Container Toolkit
+2. `docker-compose -f docker-compose.prod.yml up --build`
+3. 訪問 http://localhost:8000/health 及 /metrics
+4. 監控與告警自動啟動，異常自動通知
+
+---
+
+## 主要功能
+
+### 1. 自動化測試部署
+- GitHub Actions + self-hosted runner：自動化部署（可結合健康檢查與 scripts/rollback.sh 實現自動回滾）
+- docker-compose.prod.yml：一鍵啟動生產環境
+- 多版本模型部署與切換
+- 效能基線檢查腳本（tests/test_production_workflow.py, tests/test_resource_workflow.py）
+- 一鍵量化腳本（scripts/quantize.py）
+- 完整測試與驗收 checklist（docs/agent_context/phase4/05_validation_checklist.md）
+
+### 2. 服務層監控（API/資源）
+- Prometheus/Grafana 監控模板與自動化部署
+- 健康檢查腳本（scripts/health_check.py）：提供自動化健康檢查腳本，方便集成至 CI/CD 或監控流程
+- 日誌與異常追蹤（/logs）
+- Slack/Alertmanager 整合自動告警與回滾（scripts/rollback.sh）
+
+### 3. 深度推論效能分析（Profiling）
+- nsys profiling 啟動腳本（scripts/run_vllm_nsys.sh）
+- nsys 報告自動收集與分析
+- nsys-exporter：需手動執行，先用 nsys 產生 profiling 報告，再用 nsys-exporter 解析報告並啟動 HTTP 服務，Prometheus 才能拉取指標（非推論服務自動暴露，需額外腳本或排程調用）
+
+### 4. 自訂義效能與業務指標
+- 自訂指標範例（RAG 準度、召回率、BLEU/ROUGE、延遲分布等）
+- Prometheus_client 實作範例
+- 多模型/多版本/A/B 測試指標收集
+
+---
+
+## 參考
+
+- [docs/agent_context/phase4/05_validation_checklist.md](docs/agent_context/phase4/05_validation_checklist.md)
+- [monitoring/prometheus.prod.yml](monitoring/prometheus.prod.yml)
+- [monitoring/alertmanager.yml](monitoring/alertmanager.yml)
