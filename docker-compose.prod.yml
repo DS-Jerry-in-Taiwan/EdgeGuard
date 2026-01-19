@@ -1,7 +1,8 @@
 services:
-  vllm-prod:
-    image: edgeguard/vllm:latest
-    restart: unless-stopped
+  quantize:
+    build:
+      context: .
+      dockerfile: Dockerfile.quantize
     deploy:
       resources:
         reservations:
@@ -9,21 +10,62 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    environment:
-      - MODEL_PATH=/models/qwen2.5-7b
-      - PROMETHEUS_PORT=9090
-    ports:
-      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./models/output:/models/output
+      - ./config.yaml:/app/config.yaml
+
+  vllm-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
-      timeout: 3s
-      retries: 6
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "5"
+        max-file: "3"
+    ports:
+      - "8000:8000"
     volumes:
-      - ./models:/models
-      - ./logs:/logs
+      - ./models/quantized:/models/quantized
+      - ./models/output:/models/output
+    env_file:
+      - ./vllm.env
+    command: >
+      bash -c "python3 -m vllm.entrypoints.openai.api_server
+        --model $${VLLM_MODEL:-/models/quantized}
+        --dtype $${VLLM_DTYPE:-float16}
+        --quantization $${VLLM_QUANTIZATION:-awq}
+        --max-model-len $${VLLM_MAX_MODEL_LEN:-1024}
+        --gpu-memory-utilization $${VLLM_GPU_MEMORY_UTILIZATION:-0.6}
+        --max-num-seqs $${VLLM_MAX_NUM_SEQS:-64}
+        --host $${VLLM_HOST:-0.0.0.0}
+        --port $${VLLM_PORT:-8000}"
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.prod.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"

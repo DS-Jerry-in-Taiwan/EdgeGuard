@@ -1,0 +1,4 @@
+# 量化子服務專用依賴
+autoawq==0.2.9
+transformers==4.51.3
+torch==2.6.0

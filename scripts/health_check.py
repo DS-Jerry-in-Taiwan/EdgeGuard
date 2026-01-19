@@ -1,39 +1,79 @@
 import time
 import requests
 import logging
+import sys
+from datetime import datetime
 
-LOG_PATH = "./logs/health_check.log"
+LOG_PATH = "logs/health_check.log"
 HEALTH_URL = "http://localhost:8000/health"
-MAX_ATTEMPTS = 6
-FAIL_THRESHOLD = 3
-LATENCY_LIMIT_MS = 100
+MAX_LATENCY_MS = 100
+MAX_FAILS = 3
+CHECK_DURATION = 60  # seconds
 
-logging.basicConfig(filename=LOG_PATH, level=logging.INFO, format="%(asctime)s %(message)s")
+import os
 
-def check_health():
-    fail_count = 0
-    latencies = []
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        start = time.time()
+def setup_logger():
+    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+    logging.basicConfig(
+        filename=LOG_PATH,
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s"
+    )
+
+def main():
+    setup_logger()
+    import sys
+    # 啟動等待與 retry 機制
+    for retry in range(3):
+        if retry > 0:
+            print(f"Health check retry {retry}/3: waiting 30s before next attempt...")
+            time.sleep(30)
         try:
+            # 嘗試連線一次 /health
             resp = requests.get(HEALTH_URL, timeout=2)
-            latency = int((time.time() - start) * 1000)
-            latencies.append(latency)
-            if resp.status_code == 200 and latency < LATENCY_LIMIT_MS:
-                logging.info(f"Attempt {attempt}: OK, Latency: {latency}ms")
-            else:
-                fail_count += 1
-                logging.warning(f"Attempt {attempt}: FAIL, Status: {resp.status_code}, Latency: {latency}ms")
+            if resp.status_code == 200:
+                print("Initial health check passed, start monitoring...")
+                break
         except Exception as e:
-            fail_count += 1
-            logging.error(f"Attempt {attempt}: ERROR, {str(e)}")
-        time.sleep(10)
-        if fail_count >= FAIL_THRESHOLD:
+            print(f"Initial health check failed: {e}")
+        if retry == 2:
+            print("Service not ready after 3 attempts, aborting health check.")
+            sys.exit(1)
+    start = time.time()
+    fails = 0
+    latencies = []
+    attempts = 0
+
+    while time.time() - start < CHECK_DURATION:
+        attempts += 1
+        try:
+            t0 = time.time()
+            resp = requests.get(HEALTH_URL, timeout=2)
+            latency = int((time.time() - t0) * 1000)
+            latencies.append(latency)
+            if resp.status_code == 200 and latency < MAX_LATENCY_MS:
+                logging.info(f"Health OK, latency={latency}ms")
+                print(f"Status: OK, Latency: {latency}ms")
+                fails = 0
+            else:
+                fails += 1
+                logging.warning(f"Health FAIL, latency={latency}ms, status={resp.status_code}")
+                print(f"Status: FAIL, Latency: {latency}ms, Status: {resp.status_code}")
+        except Exception as e:
+            fails += 1
+            logging.error(f"Health EXCEPTION: {e}")
+            print(f"Status: FAIL, Exception: {e}")
+
+        if fails >= MAX_FAILS:
             logging.error("Health check failed 3 times, returning FAIL")
-            return 1
-    avg_latency = sum(latencies) // len(latencies) if latencies else -1
-    logging.info(f"Health check completed, avg latency: {avg_latency}ms, fail count: {fail_count}")
-    return 0
+            print("FAIL")
+            sys.exit(1)
+        time.sleep(1)
+
+    avg_latency = sum(latencies) / len(latencies) if latencies else 0
+    logging.info(f"Health check completed, attempts={attempts}, avg_latency={avg_latency:.1f}ms")
+    print(f"Health check completed, attempts={attempts}, avg_latency={avg_latency:.1f}ms")
+    sys.exit(0)
 
 if __name__ == "__main__":
-    exit(check_health())
+    main()

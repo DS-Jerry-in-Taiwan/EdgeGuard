@@ -1,40 +1,44 @@
-import sys
-import json
+import argparse
 import requests
-import logging
+import json
+import os
+from datetime import datetime
 
-LOG_PATH = "./logs/slack_notifier.log"
-WEBHOOK_URL = "https://hooks.slack.com/services/your/webhook/url"
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/your/webhook/url")
 
-def send_slack(level, message, metrics=None):
-    color = {"critical": "#ff0000", "warning": "#ffae42", "info": "#36a64f"}.get(level, "#cccccc")
+def send_slack_notification(level, message, metrics=None, log=None):
+    color = {
+        "critical": "#ff0000",
+        "warning": "#ffae42",
+        "info": "#36a64f"
+    }.get(level, "#cccccc")
+    text = f"*[{level.upper()}]* {message}"
+    if metrics:
+        text += "\n" + "\n".join([f"{k}: {v}" for k, v in metrics.items()])
+    if log and os.path.exists(log):
+        with open(log, "r") as f:
+            log_tail = "".join(f.readlines()[-10:])
+        text += f"\n```{log_tail}```"
     payload = {
         "attachments": [
             {
+                "fallback": text,
                 "color": color,
-                "title": f"EdgeGuard Alert [{level.upper()}]",
-                "text": message,
-                "fields": [{"title": k, "value": str(v), "short": True} for k, v in (metrics or {}).items()]
+                "pretext": f"EdgeGuard Production Alert ({datetime.now().isoformat(timespec='seconds')})",
+                "text": text
             }
         ]
     }
-    try:
-        resp = requests.post(WEBHOOK_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"}, timeout=5)
-        resp.raise_for_status()
-        logging.info(f"Slack notification sent: {level} - {message}")
-        return True
-    except Exception as e:
-        logging.error(f"Slack notification failed: {str(e)}")
-        return False
+    resp = requests.post(SLACK_WEBHOOK_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"})
+    if resp.status_code != 200:
+        raise Exception(f"Slack notification failed: {resp.text}")
 
 if __name__ == "__main__":
-    import argparse
-    logging.basicConfig(filename=LOG_PATH, level=logging.INFO, format="%(asctime)s %(message)s")
     parser = argparse.ArgumentParser()
     parser.add_argument("--level", required=True, choices=["critical", "warning", "info"])
     parser.add_argument("--message", required=True)
-    parser.add_argument("--metrics", type=str, default=None)
+    parser.add_argument("--metrics", type=str, help="JSON string of metrics")
+    parser.add_argument("--log", type=str, help="Log file path")
     args = parser.parse_args()
     metrics = json.loads(args.metrics) if args.metrics else None
-    success = send_slack(args.level, args.message, metrics)
-    sys.exit(0 if success else 1)
+    send_slack_notification(args.level, args.message, metrics, args.log)

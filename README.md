@@ -11,31 +11,38 @@ EdgeGuard 是一套針對邊緣 AI 服務可靠性與效能的自動化驗證平
 
 ---
 
-## 監控與效能分析
+## 主要功能與分層監控架構
 
-本平台監控分為三大面向，協助用戶即時掌握服務狀態、推論效能與業務指標：
+EdgeGuard 以「由高階到細節」的分層設計，將自動化部署、監控、回滾、效能分析整合於單一平台：
 
-### 1. 服務層監控（API/資源）
+### 1. 全域監控與異常自動化
+- **Prometheus + Grafana**：統一收集 vLLM 服務的 GPU VRAM、TTFT、TPS、GPU 溫度等指標，並可視化於 Grafana。
+- **Alertmanager 告警整合**：當 VRAM > 98%、TTFT > 800ms、TPS < 20 或 GPU 過熱時，自動發送 Slack 通知並可觸發自動回滾。
+- **/metrics 端點**：vLLM 服務自帶 /metrics，Prometheus 以 15 秒頻率抓取，支援多服務多版本監控。
+- **日誌與追蹤**：所有異常事件與回滾操作皆記錄於 /logs，便於審查與效能優化。
 
-- **Prometheus 監控整合**：自動抓取 vLLM 服務的 GPU VRAM、TTFT（Time To First Token）、TPS（Throughput）、GPU 溫度等關鍵指標。
-- **/metrics 端點**：vLLM 服務自帶 /metrics，支援 Prometheus 15 秒抓取頻率，數據可視化於 Grafana。
-- **Alertmanager 告警**：當 VRAM > 98%、TTFT > 800ms、TPS < 20 或 GPU 過熱時，系統自動發送 Slack 通知並可觸發自動回滾。
-- **瓶頸分析**：監控數據可用於分析推理延遲、資源瓶頸（如 OOM、GPU 飽和）、服務重啟等異常，協助快速定位與優化。
-- **日誌與追蹤**：所有異常事件與回滾操作皆記錄於 /logs，便於後續審查與效能優化。
+### 2. 自動化測試部署與回滾
+- **GitHub Actions + self-hosted runner**：自動化部署（可結合健康檢查與 scripts/rollback.sh 實現自動回滾）
+- **docker-compose.prod.yml**：一鍵啟動生產環境
+- **健康檢查腳本**：scripts/health_check.py 提供自動化健康檢查，可集成至 CI/CD 或監控流程
+- **回滾腳本**：scripts/rollback.sh 同時還原 config.yaml 與 models/quantized 目錄，確保部署異常時一鍵恢復穩定狀態
+- **詳細回滾與 artifacts 一致性說明**：請參見 [docs/rollback_protocol.md](docs/rollback_protocol.md)
 
-### 2. 深度推論效能分析（Profiling）
+### 3. 服務層監控與瓶頸分析
+- **Prometheus/Grafana 監控模板與自動化部署**
+- **瓶頸分析**：監控數據可用於分析推理延遲、資源瓶頸（如 OOM、GPU 飽和）、服務重啟等異常，協助快速定位與優化
+- **Slack/Alertmanager 整合**：異常自動告警與回滾
 
-- **NVIDIA Nsight Systems (nsys) 整合**：可於容器內啟動 nsys，對推論流程進行 GPU kernel trace、memory timeline、CUDA kernel、PCIe 傳輸等細節 profiling。
-- **Profiling 報告**：nsys 產生 .qdrep/.nsys-rep 檔案，支援離線分析，或透過 nsys-exporter 將部分指標轉為 Prometheus 格式。
-- **應用場景**：適用於定位單次推論瓶頸、GPU 資源利用率、kernel 排程與記憶體傳輸等底層效能問題，補足 API 層監控無法涵蓋的細節。
+### 4. 深度推論效能分析（Profiling）
+- **NVIDIA Nsight Systems (nsys) 整合**：可於容器內啟動 nsys，對推論流程進行 GPU kernel trace、memory timeline、CUDA kernel、PCIe 傳輸等細節 profiling
+- **Profiling 報告**：nsys 產生 .qdrep/.nsys-rep 檔案，支援離線分析，或透過 nsys-exporter 將部分指標轉為 Prometheus 格式
+- **應用場景**：適用於定位單次推論瓶頸、GPU 資源利用率、kernel 排程與記憶體傳輸等底層效能問題，補足 API 層監控無法涵蓋的細節
+
+### 5. 自訂義效能與業務指標
+- **自訂指標類型**：可於 API server 內用 prometheus_client 定義如 RAG 準度、召回率、BLEU/ROUGE、推論成功率、延遲分布等 Gauge/Counter/Histogram
+- **多模型/多版本/A/B 測試指標收集**，Prometheus/Grafana 可視化
 
 ---
-
-### 3. 自訂義效能與業務指標
-
-- **自訂指標類型**：可於 API server 內用 prometheus_client 定義如 RAG 準度、召回率、模型 BLEU/ROUGE 分數、推論成功率、延遲分布等 Gauge/Counter/Histogram。
-- **實作方式**：每次推論或評測後即時計算，並 set()/inc()/observe() 更新指標，所有自訂指標自動暴露於 /metrics。
-- **收集與可視化**：Prometheus 定時拉取 /metrics，Grafana 查詢並可視化自訂指標，支援多模型、多版本、A/B 測試等場景。
 
 ## 快速啟動
 
@@ -46,37 +53,9 @@ EdgeGuard 是一套針對邊緣 AI 服務可靠性與效能的自動化驗證平
 
 ---
 
-## 主要功能
-
-### 1. 自動化測試部署
-- GitHub Actions + self-hosted runner：自動化部署（可結合健康檢查與 scripts/rollback.sh 實現自動回滾）
-- docker-compose.prod.yml：一鍵啟動生產環境
-- 多版本模型部署與切換
-- 效能基線檢查腳本（tests/test_production_workflow.py, tests/test_resource_workflow.py）
-- 一鍵量化腳本（scripts/quantize.py）
-- 完整測試與驗收 checklist（docs/agent_context/phase4/05_validation_checklist.md）
-
-### 2. 服務層監控（API/資源）
-- Prometheus/Grafana 監控模板與自動化部署
-- 健康檢查腳本（scripts/health_check.py）：提供自動化健康檢查腳本，方便集成至 CI/CD 或監控流程
-- 日誌與異常追蹤（/logs）
-- Slack/Alertmanager 整合自動告警與回滾（scripts/rollback.sh）
-
-### 3. 深度推論效能分析（Profiling）
-- nsys profiling 啟動腳本（scripts/run_vllm_nsys.sh）
-- nsys 報告自動收集與分析
-- nsys-exporter：需手動執行，先用 nsys 產生 profiling 報告，再用 nsys-exporter 解析報告並啟動 HTTP 服務，Prometheus 才能拉取指標（非推論服務自動暴露，需額外腳本或排程調用）
-
-### 4. 自訂義效能與業務指標
-- 自訂指標範例（RAG 準度、召回率、BLEU/ROUGE、延遲分布等）
-- Prometheus_client 實作範例
-- 多模型/多版本/A/B 測試指標收集
-
----
-
 ## 參考
 
+- [docs/rollback_protocol.md](docs/rollback_protocol.md)
 - [docs/agent_context/phase4/05_validation_checklist.md](docs/agent_context/phase4/05_validation_checklist.md)
 - [monitoring/prometheus.prod.yml](monitoring/prometheus.prod.yml)
-- [monitoring/alertmanager.yml](monitoring/alertmanager.yml)
-
+- [monitoring/alertmanager.yml](monitoring/alertmanager.yml)- 健康檢查腳本（scripts/health_check.py）：提供自動化健康檢查腳本，方便集成至 CI/CD 或監控流程

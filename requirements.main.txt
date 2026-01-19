@@ -1,0 +1,9 @@
+# 主服務 API/推理環境依賴
+numpy==1.26.4
+scipy==1.10.1
+pandas==2.3.3
+triton==3.5.0
+cupy-cuda12x==13.1.0
+vllm
+transformers
+prometheus_client
