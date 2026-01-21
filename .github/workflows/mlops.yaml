@@ -29,6 +29,8 @@ jobs:
     needs: quantize
     runs-on: [self-hosted, gpu]
     steps:
+      - name: Fix models/output permissions
+        run: sudo chown -R $USER:$USER models/output || true && sudo chmod -R 777 models/output || true
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Setup Python
