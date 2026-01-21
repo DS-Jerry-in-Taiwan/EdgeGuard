@@ -17,8 +17,8 @@ jobs:
           sudo rm -rf models
           mkdir -p models/quantized
           mkdir -p models/output
-          sudo chown -R $USER:$USER models
-          ls -la models
+          ls -la
+          # sudo chown -R $USER:$USER models
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Setup Python
@@ -27,10 +27,10 @@ jobs:
           python-version: '3.10'
       - name: check docker compose version
         run: docker compose version
-      - name: Start docker compose
-        run: docker compose -f docker-compose.prod.yml up -d
-      - name: Run quantization
-        run: python scripts/quantize.py
+      - name: Start quantize container and run quantization
+        run: |
+          docker compose -f docker-compose.prod.yml up -d quantize
+          docker compose exec quantize python scripts/quantize.py
 
       - name: Fix models permissions after quantize
         run: sudo chown -R $USER:$USER models || true && sudo chmod -R 777 models || true
