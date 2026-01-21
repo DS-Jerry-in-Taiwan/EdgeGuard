@@ -10,6 +10,8 @@ on:
     workflows: ["EdgeGuard ML Quantization & Performance Gate"]
     types:
       - completed
+    branches:
+      - main
   push:
     branches:
       - main
@@ -18,6 +20,23 @@ jobs:
   deploy-prod:
     runs-on: [self-hosted, gpu]
     steps:
+      - name: Check quantize workflow status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const run_id = process.env.GITHUB_RUN_ID;
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "mlops.yaml",
+              branch: "main",
+              status: "completed"
+            });
+            if (!runs.workflow_runs.length || runs.workflow_runs[0].conclusion !== "success") {
+              core.info("Quantize workflow not successful, skipping deploy.");
+              process.exit(0);
+            }
+
       - name: Fix models/output permissions
         run: sudo chown -R $USER:$USER models/output || true && sudo chmod -R 777 models/output || true
 
