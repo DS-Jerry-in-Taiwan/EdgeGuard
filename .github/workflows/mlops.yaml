@@ -25,6 +25,9 @@ jobs:
       - name: Run quantization
         run: python scripts/quantize.py
 
+      - name: Fix models permissions after quantize
+        run: sudo chown -R $USER:$USER models || true && sudo chmod -R 777 models || true
+
   test:
     needs: quantize
     runs-on: [self-hosted, gpu]
