@@ -11,6 +11,9 @@ jobs:
     runs-on: [self-hosted, gpu]
     # container:
     #   image: edgeguard/vllm:latest
+    env:
+      HF_MODEL_DIR: qwen2.5-7b
+      HF_MODEL_ID: Qwen2.5-7B
     steps:
       - name: Ensure models directories have correct permissions
         run: |
@@ -26,7 +29,20 @@ jobs:
         run: |
           mkdir -p models/quantized
           mkdir -p models/output
+          mkdir -p models/$HF_MODEL_DIR        
           ls -la
+      - name: Cache HuggingFace model
+        uses: actions/cache@v3
+        with:
+          path: models/$HF_MODEL_DIR
+          key: $HF_MODEL_DIR-${{ hashFiles('scripts/quantize.py') }}
+      - name: Download HuggingFace model if not exists
+        run: |
+          if [ ! -d models/$HF_MODEL_DIR ]; then
+            huggingface-cli download Qwen/$HF_MODEL_ID --revision v1.0.0 --local-dir models/$HF_MODEL_DIR --token $HUGGINGFACE_TOKEN
+          fi
+        env:
+          HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
       - name: check docker compose version
         run: docker compose version
       - name: Start quantize container and run quantization
