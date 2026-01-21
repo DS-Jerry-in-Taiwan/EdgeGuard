@@ -24,7 +24,7 @@ jobs:
           python-version: '3.10'
       - name: create models directories
         run: |
-          mkdir -p models/input
+          mkdir -p models/quantized
           mkdir -p models/output
       - name: check docker compose version
         run: docker compose version
