@@ -18,7 +18,7 @@ jobs:
           mkdir -p models/quantized
           mkdir -p models/output
           ls -la
-          # sudo chown -R $USER:$USER models
+          sudo chown -R $USER:$USER models
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Setup Python
