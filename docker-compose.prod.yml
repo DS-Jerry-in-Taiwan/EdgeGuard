@@ -4,6 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile.quantize
     user: "1000:1000"
+    environment:
+      HF_HOME: /app/.cache
+      HF_DATASETS_CACHE: /app/.cache
+      TRANSFORMERS_CACHE: /app/.cache
+      HF_HUB_CACHE: /app/.cache
     deploy:
       resources:
         reservations:
