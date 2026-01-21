@@ -38,7 +38,7 @@ jobs:
       - name: Download HuggingFace model if not exists
         run: |
           if [ ! -d models/$HF_MODEL_DIR ]; then
-            huggingface-cli download Qwen/$HF_MODEL_ID --revision v1.0.0 --local-dir models/$HF_MODEL_DIR --token $HUGGINGFACE_TOKEN
+            huggingface-cli download Qwen/$HF_MODEL_ID --local-dir models/$HF_MODEL_DIR --token $HUGGINGFACE_TOKEN
           fi
         env:
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
