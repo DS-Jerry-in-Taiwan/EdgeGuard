@@ -28,8 +28,7 @@ jobs:
       - name: create models directories
         run: |
           mkdir -p models/quantized
-          mkdir -p models/output
-          mkdir -p models/$HF_MODEL_DIR        
+          mkdir -p models/output     
           ls -la
       - name: Cache HuggingFace model
         uses: actions/cache@v3
