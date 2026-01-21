@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.quantize
+    user: "1000:1000"
     deploy:
       resources:
         reservations:
@@ -19,6 +20,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    user: "1000:1000"
     deploy:
       resources:
         reservations:
