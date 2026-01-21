@@ -14,9 +14,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
       - name: Ensure models directories exist
         run: |
+          rm -rf models/quantized models/output
           mkdir -p models/quantized
           mkdir -p models/output
           sudo chown -R $USER:$USER models
