@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Ensure models directories exist
         run: |
+          pwd
+          ls -la
           sudo rm -rf models/quantized models/output
           mkdir -p models/quantized
           mkdir -p models/output
