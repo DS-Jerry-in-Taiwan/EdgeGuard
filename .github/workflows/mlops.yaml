@@ -49,6 +49,7 @@ jobs:
           set -e
           docker compose -f docker-compose.prod.yml up -d quantize
           docker compose exec quantize python scripts/quantize.py
+        working-directory: ${{ github.workspace }}
   test:
     needs: quantize
     runs-on: [self-hosted, gpu]
